@@ -1,0 +1,47 @@
+name: Build ShieldTV-dxtdecoder
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install NDK
+      run: |
+        sdkmanager "ndk;25.2.9519653"
+        sdkmanager "cmake;3.22.1"
+
+    - name: Setup JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Build dxtdecoder .so
+      run: |
+        export ANDROID_NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
+        mkdir -p build
+        cmake \
+          -B build \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=armeabi-v7a \
+          -DANDROID_PLATFORM=android-21 \
+          -DCMAKE_C_FLAGS="-march=armv7-a -mthumb -mfloat-abi=softfp" \
+          -DCMAKE_CXX_FLAGS="-march=armv7-a -mthumb -mfloat-abi=softfp"
+        cmake --build build --target dxt_decoder
+
+    - name: Upload decoder .so
+      uses: actions/upload-artifact@v4
+      with:
+        name: dxt_decoder
+        path: build//libdxt_decoder.so 
