@@ -6,6 +6,10 @@
 #define PF_DXT5     7
 #define PF_A8R8G8B8 2
 
+using FN_GetEffectivePixelFormat = int(*)(int, unsigned int, int);
+
+FN_GetEffectivePixelFormat real_GetEffective = nullptr;
+
 extern "C" int _ZN10UTexture2D23GetEffectivePixelFormatE12EPixelFormatjN3UE313EPlatformTypeE(
     int format, unsigned int sizeX, int platform) {
 
