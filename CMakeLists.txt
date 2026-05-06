@@ -11,6 +11,9 @@ if(NOT TARGET dobby)
     SET_OPTION(DOBBY_DEBUG OFF)
     SET_OPTION(DOBBY_GENERATE_SHARED OFF)
     add_subdirectory(${DOBBY_DIR} dobby)
+    target_include_directories(dxt_decoder PRIVATE
+        ${DOBBY_DIR}/source
+    )
     get_property(DOBBY_INCLUDE_DIRECTORIES
         TARGET dobby
         PROPERTY INCLUDE_DIRECTORIES)
