@@ -31,7 +31,7 @@ jobs:
       run: |
          git clone https://github.com/jmpews/Dobby.git external/dobby
          cd external/dobby
-         git checkout 4f9e6b3             
+         git checkout 0932d69    
              
     - name: Build dxtdecoder .so
       run: |
