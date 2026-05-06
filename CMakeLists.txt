@@ -31,8 +31,6 @@ add_library(dxt_decoder SHARED
     src/dxtdecoder/pfh.cpp 
 )
 
-target_link_libraries(dxt_decoder PRIVATE dobby) 
-
 target_link_libraries(dxt_decoder 
     dobby 
     ${log-lib}
