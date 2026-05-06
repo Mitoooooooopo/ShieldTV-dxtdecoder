@@ -44,10 +44,18 @@ jobs:
           -DANDROID_PLATFORM=android-21 \
           -DCMAKE_C_FLAGS="-march=armv7-a -mthumb -mfloat-abi=softfp" \
           -DCMAKE_CXX_FLAGS="-march=armv7-a -mthumb -mfloat-abi=softfp"
-        cmake --build build --target dxt_decoder
+        cmake --build build 
 
     - name: Upload decoder .so
       uses: actions/upload-artifact@v4
       with:
         name: dxt_decoder
         path: build//libdxt_decoder.so 
+
+    - name: Upload Dobby
+      uses: actions/upload-artifact@v4
+      with:
+        name: libdobby
+        path: |
+          build/dobby/libdobby.so
+          build/**/libdobby.so

@@ -10,7 +10,7 @@ macro(SET_OPTION option value)
     endmacro()
 
     SET_OPTION(DOBBY_DEBUG OFF)
-    SET_OPTION(DOBBY_GENERATE_SHARED OFF)
+    SET_OPTION(DOBBY_GENERATE_SHARED ON)
 
     add_subdirectory(${DOBBY_DIR} dobby)
 
