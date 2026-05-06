@@ -12,6 +12,9 @@ add_library(dobby STATIC IMPORTED)
 set_target_properties(dobby PROPERTIES
     IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/libs/arm/libdobby.a)
     
+target_include_directories(dxt_decoder PRIVATE
+    ${CMAKE_SOURCE_DIR}/external/dobby/include
+)
 
 add_library(dxt_decoder SHARED
     src/dxtdecoder/libdxt_decoder.cpp 
