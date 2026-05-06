@@ -30,7 +30,9 @@ jobs:
     - name: Build Dobby
       run: |
          git clone https://github.com/jmpews/Dobby.git external/dobby
-                 
+         cd external/dobby
+         git checkout 4f9e6b3             
+             
     - name: Build dxtdecoder .so
       run: |
         export ANDROID_NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
