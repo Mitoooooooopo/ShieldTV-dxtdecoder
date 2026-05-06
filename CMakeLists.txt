@@ -10,6 +10,7 @@ find_library(dl-lib dl)
 
 add_library(dxt_decoder SHARED
     src/dxtdecoder/libdxt_decoder.cpp 
+    src/dxtdecoder/pfh.cpp 
 )
 
 target_link_libraries(dxt_decoder
