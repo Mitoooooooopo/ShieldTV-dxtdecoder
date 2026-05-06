@@ -28,20 +28,20 @@ jobs:
         distribution: 'temurin'
 
     - name: Build Dobby
-          run: |
-            git clone https://github.com/jmpews/Dobby.git external/dobby
-            export ANDROID_NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
-            mkdir -p external/dobby/build
-            cmake \
-              -B external/dobby/build \
-              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-              -DANDROID_ABI=armeabi-v7a \
-              -DANDROID_PLATFORM=android-21 \
-              -DCMAKE_BUILD_TYPE=Release \
-              external/dobby
-            cmake --build external/dobby/build --target dobby
-            mkdir -p libs/arm
-            cp external/dobby/build/libdobby.a libs/arm/
+      run: |
+         git clone https://github.com/jmpews/Dobby.git external/dobby
+         export ANDROID_NDK=$ANDROID_SDK_ROOT/ndk/25.2.9519653
+         mkdir -p external/dobby/build
+         cmake \
+           -B external/dobby/build \
+           -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+           -DANDROID_ABI=armeabi-v7a \
+           -DANDROID_PLATFORM=android-21 \
+           -DCMAKE_BUILD_TYPE=Release \
+           external/dobby
+         cmake --build external/dobby/build --target dobby
+         mkdir -p libs/arm
+         cp external/dobby/build/libdobby.a libs/arm/
     
     - name: Build dxtdecoder .so
       run: |
