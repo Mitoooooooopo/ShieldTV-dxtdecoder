@@ -15,9 +15,6 @@ macro(SET_OPTION option value)
     add_subdirectory(${DOBBY_DIR} dobby)
 
     # Ensure Dobby exports correct include root
-    target_include_directories(dobby PUBLIC
-        ${DOBBY_DIR}/source
-        )
 
         
 find_library(SDL2 SDL2)
