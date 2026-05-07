@@ -31,10 +31,13 @@ void my_InitRHI(void* self) {
     uint8_t* tex = *(uint8_t**)(res + 0x48);
     if (!tex) { orig_InitRHI(self); return; }
 
-    uint8_t  format   = *(uint8_t*)(tex + 0x114);
-    int      firstMip = *(int*)(res + 0x50);
-    void**   mipArray = *(void***)(tex + 0xec);
-
+    uint8_t* mipArrayObj = *(uint8_t**)(tex + 0xec);  // TIndirectArray*
+    void**   mipData     = *(void***)(mipArrayObj + 0); // actual array
+    int      mipCount    = *(int*)(mipArrayObj + 4);
+    
+    for (int mip = firstMip; mip < mipCount; mip++) {
+        uint8_t* mipMap = (uint8_t*)mipData[mip];
+        
     if (!mipArray) {
         orig_InitRHI(self); 
         return;
