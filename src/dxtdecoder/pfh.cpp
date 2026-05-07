@@ -1,124 +1,105 @@
-#include <jni.h>
+#include <GLES3/gl3.h>
 #include <dlfcn.h>
-#include <stdlib.h>
-#include <string.h>
 #include <android/log.h>
 #include "dobby.h"
 
-#define TAG "ResourceMem"
+#define TAG "InitRHI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 
-// Use engine's own allocator
-typedef void* (*FN_appMalloc)(size_t size, size_t align);
-typedef void  (*FN_appFree)(void* ptr);
+// BulkData functions
+typedef void  (*FN_MakeSureBulkDataIsLoaded)(void*);
+typedef void* (*FN_Lock)(void*, uint32_t);
+typedef void  (*FN_Unlock)(void*);
+typedef int   (*FN_GetBulkDataSize)(void*);
 
-static FN_appMalloc eng_malloc = nullptr;
-static FN_appFree   eng_free   = nullptr;
+static FN_MakeSureBulkDataIsLoaded eng_MakeSureBulkDataIsLoaded = nullptr;
+static FN_Lock    eng_Lock    = nullptr;
+static FN_Unlock  eng_Unlock  = nullptr;
+static FN_GetBulkDataSize eng_GetBulkDataSize = nullptr;
 
-static void* eng_alloc(size_t size) {
-    if (eng_malloc) return eng_malloc(size, 8);
-    return calloc(1, size); // fallback
-}
+// DXT decompressor (from your existing code)
+extern uint32_t* decompress_dxt(GLenum format, const void* data,
+                                 GLsizei width, GLsizei height);
 
-static void eng_release(void* ptr) {
-    if (eng_free) eng_free(ptr);
-    else free(ptr);
-}
+typedef void (*FN_InitRHI)(void* self);
+static FN_InitRHI orig_InitRHI = nullptr;
 
-// FTexture2DResourceMem struct
-struct FTexture2DResourceMem {
-    void**   vtable;
-    int      sizeX;
-    int      sizeY;
-    int      numMips;
-    int      pixelFormat;
-    void**   mipData;
-    size_t*  mipSizes;
-};
+void my_InitRHI(void* self) {
+    uint8_t* res = (uint8_t*)self;
+    uint8_t* tex = *(uint8_t**)(res + 0x48);
+    if (!tex) { orig_InitRHI(self); return; }
 
-// Vtable stubs
-static void  stub_dtor(void* self) {
-    FTexture2DResourceMem* m = (FTexture2DResourceMem*)self;
-    if (m->mipData) {
-        for (int i = 0; i < m->numMips; i++)
-            if (m->mipData[i]) eng_release(m->mipData[i]);
-        eng_release(m->mipData);
+    uint8_t  format   = *(uint8_t*)(tex + 0x114);
+    int      firstMip = *(int*)(res + 0x50);
+    void**   mipArray = *(void***)(tex + 0xec);
+
+    if (format < 5 || format > 7 || !mipArray) {
+        orig_InitRHI(self); return;
     }
-    if (m->mipSizes) eng_release(m->mipSizes);
-    eng_release(m);
-}
-static int   stub_isValid(void* self) { return 1; }
-static void* stub_getMip(void* self, int mip) {
-    FTexture2DResourceMem* m = (FTexture2DResourceMem*)self;
-    if (mip < 0 || mip >= m->numMips) return nullptr;
-    return m->mipData[mip];
-}
-static void  stub_noop(void*) {}
 
-static void* stub_vtable[] = {
-    (void*)stub_dtor,     // slot 0 +0x00
-    (void*)stub_dtor,     // slot 1 +0x04
-    (void*)stub_noop,     // slot 2 +0x08
-    (void*)stub_noop,     // slot 3 +0x0c
-    (void*)stub_isValid,  // slot 4 +0x10 ← called at 0x9673ec
-    (void*)stub_getMip,   // slot 5 +0x14
-    (void*)stub_noop,     // slot 6 +0x18
-};
+    GLuint texHandle = 0;
+    glGenTextures(1, &texHandle);
+    glBindTexture(GL_TEXTURE_2D, texHandle);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-// Hook target
-typedef void* (*FN_CreateResourceMem)(void*, int, int, int, int, unsigned int, void*);
-static FN_CreateResourceMem orig_CreateResourceMem = nullptr;
+    GLenum dxtFmt = (format==5) ? 0x83F0 : (format==6) ? 0x83F2 : 0x83F3;
 
-void* my_CreateResourceMem(void* self, int sizeX, int sizeY,
-                            int numMips, int format,
-                            unsigned int flags, void* counter) {
-    LOGI("CreateResourceMem: %dx%d mips=%d fmt=%d", sizeX, sizeY, numMips, format);
+    for (int mip = firstMip; ; mip++) {
+        uint8_t* mipMap = (uint8_t*)mipArray[mip];
+        if (!mipMap) break;
 
-    FTexture2DResourceMem* mem =
-        (FTexture2DResourceMem*)calloc(1, sizeof(FTexture2DResourceMem));
+        // Mip dimensions
+        int sizeX = *(int*)(mipMap + 0x34);
+        int sizeY = *(int*)(mipMap + 0x38);
+        if (sizeX <= 0 || sizeY <= 0) break;
 
-    mem->vtable      = stub_vtable;
-    mem->sizeX       = sizeX;
-    mem->sizeY       = sizeY;
-    mem->numMips     = numMips > 0 ? numMips : 1;
-    mem->pixelFormat = format;
-    mem->mipData     = (void**)calloc(mem->numMips, sizeof(void*));
-    mem->mipSizes    = (size_t*)calloc(mem->numMips, sizeof(size_t));
+        // BulkData starts at offset 0 of FTexture2DMipMap
+        void* bulkData = mipMap;
 
-    int w = sizeX, h = sizeY;
-    for (int i = 0; i < mem->numMips; i++) {
-        size_t size = (w < 1 ? 1 : w) * (h < 1 ? 1 : h) * 4;
-        mem->mipData[i]  = calloc(size, 1);
-        mem->mipSizes[i] = size;
-        w >>= 1; h >>= 1;
+        if (eng_MakeSureBulkDataIsLoaded)
+            eng_MakeSureBulkDataIsLoaded(bulkData);
+
+        void* rawData = eng_Lock ? eng_Lock(bulkData, 1) : nullptr;
+        if (!rawData) { break; }
+
+        uint32_t* rgba = decompress_dxt(dxtFmt, rawData, sizeX, sizeY);
+        if (rgba) {
+            glTexImage2D(GL_TEXTURE_2D, mip - firstMip,
+                        GL_RGBA, sizeX, sizeY, 0,
+                        GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+            free(rgba);
+        }
+
+        if (eng_Unlock) eng_Unlock(bulkData);
     }
-    return mem;
+
+    *(GLuint*)(res + 0x10c) = texHandle;
+    LOGI("InitRHI: texture %d created", texHandle);
 }
 
 __attribute__((constructor))
 static void install_hooks() {
-    LOGI("Constructor hook installing...");
-    
     void* handle = dlopen("libUnrealEngine3.so", RTLD_NOLOAD | RTLD_GLOBAL);
-    if (!handle) {
-        // Try without RTLD_NOLOAD - force load it
-        handle = dlopen("libUnrealEngine3.so", RTLD_NOW | RTLD_GLOBAL);
-    }
-    if (!handle) {
-        LOGI("Still no handle: %s", dlerror());
-        return;
-    }
+    if (!handle) handle = dlopen("libUnrealEngine3.so", RTLD_NOW | RTLD_GLOBAL);
+    if (!handle) return;
 
+    // Get BulkData functions
+    eng_MakeSureBulkDataIsLoaded = (FN_MakeSureBulkDataIsLoaded)dlsym(handle,
+        "_ZN16FUntypedBulkData24MakeSureBulkDataIsLoadedEv");
+    eng_Lock = (FN_Lock)dlsym(handle,
+        "_ZN16FUntypedBulkData4LockEj");
+    eng_Unlock = (FN_Unlock)dlsym(handle,
+        "_ZN16FUntypedBulkData6UnlockEv");
+
+    // Hook InitRHI
     void* target = dlsym(handle,
-        "_ZN10UTexture2D17CreateResourceMemEiii12EPixelFormatjP18FThreadSafeCounter");
+        "_ZN18FTexture2DResource7InitRHIEv");
+    if (target)
+        DobbyHook(target, (void*)my_InitRHI, (void**)&orig_InitRHI);
 
-    if (!target) {
-        LOGI("Symbol not found");
-        return;
-    }
-
-    LOGI("Found target at %p, hooking...", target);
-    DobbyHook(target, (void*)my_CreateResourceMem, 
-              (void**)&orig_CreateResourceMem);
-    LOGI("Hook installed!");
-} 
+    LOGI("Hooks installed");
+    dlclose(handle);
+}
