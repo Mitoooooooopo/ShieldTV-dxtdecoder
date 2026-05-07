@@ -1,5 +1,6 @@
 #include <GLES3/gl3.h>
 #include <dlfcn.h>
+#include <cstdlib>
 #include <android/log.h>
 #include "dobby.h"
 
