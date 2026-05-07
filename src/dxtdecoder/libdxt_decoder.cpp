@@ -89,9 +89,9 @@ static void decode_dxt3_alpha(const uint8_t* src, uint8_t* alpha,
 }
 
 // ── Main decompress function ─────────────────────────────
-static uint32_t* decompress_dxt(GLenum format,
-                                  const void* data,
-                                  GLsizei width, GLsizei height) {
+uint32_t* decompress_dxt(GLenum format,
+                           const void* data,
+                           GLsizei width, GLsizei height) {
     int blocks_x = (width  + 3) / 4;
     int blocks_y = (height + 3) / 4;
     uint32_t* rgba = (uint32_t*)malloc(width * height * 4);
