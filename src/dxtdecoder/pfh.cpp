@@ -1,4 +1,5 @@
 #include <GLES3/gl3.h>
+#include <dxt_common.h>
 #include <dlfcn.h>
 #include <cstdlib>
 #include <android/log.h>
