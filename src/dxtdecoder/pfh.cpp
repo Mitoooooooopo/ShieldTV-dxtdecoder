@@ -59,8 +59,6 @@ void my_InitRHI(void* self) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    GLenum dxtFmt = (format==5) ? 0x83F0 : (format==6) ? 0x83F2 : 0x83F3;
-
     for (int mip = firstMip; ; mip++) {
         uint8_t* mipMap = (uint8_t*)mipArray[mip];
         if (!mipMap) break;
