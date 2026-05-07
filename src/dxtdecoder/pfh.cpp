@@ -35,8 +35,20 @@ void my_InitRHI(void* self) {
     int      firstMip = *(int*)(res + 0x50);
     void**   mipArray = *(void***)(tex + 0xec);
 
-    if (format < 5 || format > 7 || !mipArray) {
-        orig_InitRHI(self); return;
+    if (!mipArray) {
+        orig_InitRHI(self); 
+        return;
+    }
+    
+    GLenum dxtFmt;
+    switch(format) {
+        case 5: dxtFmt = 0x83F0; break; // DXT1
+        case 6: dxtFmt = 0x83F2; break; // DXT3
+        case 7: dxtFmt = 0x83F3; break; // DXT5
+        default:
+            // Non-DXT format, use original path
+            orig_InitRHI(self);
+            return;
     }
 
     GLuint texHandle = 0;
