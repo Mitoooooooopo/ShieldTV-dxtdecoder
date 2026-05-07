@@ -21,7 +21,8 @@ find_library(SDL2 SDL2)
 find_library(log-lib log)
 find_library(android-lib android)
 find_library(dl-lib dl) 
-find_library(glesv3-lib glesv3)
+find_library(GLESV3_LIB GLESv3)
+
 
 
 add_library(dxt_decoder SHARED
@@ -35,5 +36,5 @@ target_link_libraries(dxt_decoder
     ${dl-lib} 
     ${android-lib} 
     ${egl-lib} 
-    ${glesv3-lib}
+    ${GLESV3_LIB}
 )
