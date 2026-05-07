@@ -95,29 +95,30 @@ void* my_CreateResourceMem(void* self, int sizeX, int sizeY,
     return mem;
 }
 
-extern "C" jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    LOGI("JNI_OnLoad called");
-
+__attribute__((constructor))
+static void install_hooks() {
+    LOGI("Constructor hook installing...");
+    
     void* handle = dlopen("libUnrealEngine3.so", RTLD_NOLOAD | RTLD_GLOBAL);
     if (!handle) {
-        LOGI("Failed to get libUnrealEngine3.so handle");
-        return JNI_VERSION_1_6;
+        // Try without RTLD_NOLOAD - force load it
+        handle = dlopen("libUnrealEngine3.so", RTLD_NOW | RTLD_GLOBAL);
     }
-
-    // Get engine allocators
-    eng_malloc = (FN_appMalloc)dlsym(handle, "_Z9appMallocjj");
-    eng_free   = (FN_appFree)dlsym(handle,   "_Z7appFreePv");
+    if (!handle) {
+        LOGI("Still no handle: %s", dlerror());
+        return;
+    }
 
     void* target = dlsym(handle,
         "_ZN10UTexture2D17CreateResourceMemEiii12EPixelFormatjP18FThreadSafeCounter");
 
     if (!target) {
-        LOGI("CreateResourceMem symbol not found");
-        return JNI_VERSION_1_6;
+        LOGI("Symbol not found");
+        return;
     }
 
-    DobbyHook(target, (void*)my_CreateResourceMem, (void**)&orig_CreateResourceMem);
-    LOGI("Hook installed successfully");
-
-    return JNI_VERSION_1_6;
-}
+    LOGI("Found target at %p, hooking...", target);
+    DobbyHook(target, (void*)my_CreateResourceMem, 
+              (void**)&orig_CreateResourceMem);
+    LOGI("Hook installed!");
+} 
