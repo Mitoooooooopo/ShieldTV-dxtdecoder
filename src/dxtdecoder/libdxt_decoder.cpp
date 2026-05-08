@@ -168,15 +168,21 @@ extern "C" void glCompressedTexImage2D(GLenum target, GLint level,
         internalformat == GL_COMPRESSED_RGBA_S3TC_DXT3_EXT ||
         internalformat == GL_COMPRESSED_RGBA_S3TC_DXT5_EXT) {
 
-        LOGI("DXT decode: fmt=0x%x %dx%d", internalformat, width, height);
+        // Add null/size checks
+        if (!data || width <= 0 || height <= 0 || imageSize <= 0) {
+            // Upload empty texture to reserve the slot
+            real_tex2d(target, level, GL_RGBA, 
+                      width > 0 ? width : 1, 
+                      height > 0 ? height : 1,
+                      border, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            return;
+        }
 
         uint32_t* rgba = decompress_dxt(internalformat, data, width, height);
         if (rgba) {
             real_tex2d(target, level, GL_RGBA, width, height,
                        border, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
             free(rgba);
-        } else {
-            LOGI("DXT decode: malloc failed %dx%d", width, height);
         }
         return;
     }
