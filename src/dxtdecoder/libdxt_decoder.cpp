@@ -194,37 +194,32 @@ typedef void (*FN_TexSubImage2D)(GLenum,GLint,GLint,GLint,GLsizei,GLsizei,
 static FN_CompTexSubImage2D real_comp_sub  = nullptr;
 static FN_TexSubImage2D     real_tex2d_sub = nullptr;
 
-extern "C" void glCompressedTexImage2D(GLenum target, GLint level,
-                                        GLenum internalformat,
-                                        GLsizei width, GLsizei height,
-                                        GLint border, GLsizei imageSize,
-                                        const void* data) {
-    ensure_real();
+extern "C" void glCompressedTexSubImage2D(GLenum target, GLint level,
+                                           GLint xoffset, GLint yoffset,
+                                           GLsizei width, GLsizei height,
+                                           GLenum format, GLsizei imageSize,
+                                           const void* data) {
+    if (!real_comp_sub)
+        real_comp_sub = (FN_CompTexSubImage2D)
+            dlsym(RTLD_NEXT,"glCompressedTexSubImage2D");
+    if (!real_tex2d_sub)
+        real_tex2d_sub = (FN_TexSubImage2D)
+            dlsym(RTLD_NEXT,"glTexSubImage2D");
 
-    if (internalformat == GL_COMPRESSED_RGB_S3TC_DXT1_EXT  ||
-        internalformat == GL_COMPRESSED_RGBA_S3TC_DXT1_EXT ||
-        internalformat == GL_COMPRESSED_RGBA_S3TC_DXT3_EXT ||
-        internalformat == GL_COMPRESSED_RGBA_S3TC_DXT5_EXT) {
+    if (format == GL_COMPRESSED_RGB_S3TC_DXT1_EXT  ||
+        format == GL_COMPRESSED_RGBA_S3TC_DXT1_EXT ||
+        format == GL_COMPRESSED_RGBA_S3TC_DXT3_EXT ||
+        format == GL_COMPRESSED_RGBA_S3TC_DXT5_EXT) {
 
-        // null/size checks
-        if (!data || width <= 0 || height <= 0 || imageSize <= 0) {
-            // Upload empty texture to reserve the slot
-            real_tex2d(target, level, GL_RGBA, 
-                      width > 0 ? width : 1, 
-                      height > 0 ? height : 1,
-                      border, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            return;
-        }
-
-        uint32_t* rgba = decompress_dxt(internalformat, data, width, height);
+        uint32_t* rgba = decompress_dxt(format, data, width, height);
         if (rgba) {
-            real_tex2d(target, level, GL_RGBA, width, height,
-                       border, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+            real_tex2d_sub(target, level, xoffset, yoffset,
+                           width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
             free(rgba);
         }
         return;
     }
 
-    real_comp(target, level, internalformat,
-              width, height, border, imageSize, data);
+    real_comp_sub(target, level, xoffset, yoffset,
+                  width, height, format, imageSize, data);
 }
