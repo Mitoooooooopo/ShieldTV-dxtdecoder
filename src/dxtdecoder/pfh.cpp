@@ -93,6 +93,26 @@ void my_InitRHI(void* self) {
          texHandle, format, mipCount - firstMip);
 }
 
+typedef void (*FN_CubeInitRHI)(void* self);
+static FN_CubeInitRHI orig_CubeInitRHI = nullptr;
+
+void my_CubeInitRHI(void* self) {
+    LOGI("CubeInitRHI: stubbed");
+
+    GLuint texHandle = 0;
+    glGenTextures(1, &texHandle);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texHandle);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Store handle at same offset as 2D texture
+    *(GLuint*)((uint8_t*)self + 0x10c) = texHandle;
+}
+
+
+
 __attribute__((constructor))
 static void install_hooks() {
     void* handle = dlopen("libUnrealEngine3.so", RTLD_NOLOAD | RTLD_GLOBAL);
@@ -114,5 +134,13 @@ static void install_hooks() {
         DobbyHook(target, (void*)my_InitRHI, (void**)&orig_InitRHI);
 
     LOGI("Hooks installed");
-    dlclose(handle);
+    dlclose(handle); 
+
+    void* cubeTarget = dlsym(handle,
+        "_ZN20FTextureCubeResource7InitRHIEv");
+    if (cubeTarget)
+        DobbyHook(cubeTarget, (void*)my_CubeInitRHI,
+                  (void**)&orig_CubeInitRHI);
+    else
+        LOGI("CubeInitRHI symbol not found");
 }
