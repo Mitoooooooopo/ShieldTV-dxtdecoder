@@ -19,7 +19,7 @@ static FN_Lock    eng_Lock    = nullptr;
 static FN_Unlock  eng_Unlock  = nullptr;
 static FN_GetBulkDataSize eng_GetBulkDataSize = nullptr;
 
-// DXT decompressor (from your existing code)
+// DXT decompressor 
 extern uint32_t* decompress_dxt(GLenum format, const void* data,
                                  GLsizei width, GLsizei height);
 
